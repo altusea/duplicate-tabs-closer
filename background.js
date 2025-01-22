@@ -19,7 +19,13 @@ function handleTab(tab) {
   if (urlMap.has(url)) {
     const existingTabId = urlMap.get(url);
     if (existingTabId !== tabId) {
-      chrome.tabs.remove(tabId);
+      // 获取新tab的位置
+      chrome.tabs.get(tabId, (newTab) => {
+        // 将旧tab移动到新tab的位置
+        chrome.tabs.move(existingTabId, {index: newTab.index});
+        // 关闭新tab
+        chrome.tabs.remove(tabId);
+      });
       return;
     }
   }
