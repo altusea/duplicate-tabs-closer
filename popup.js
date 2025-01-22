@@ -1,6 +1,6 @@
 // 获取当前窗口的所有 tab
 function updateTabCount() {
-  chrome.tabs.query({currentWindow: true}, (tabs) => {
+  browser.tabs.query({currentWindow: true}).then((tabs) => {
     const count = tabs.length;
     document.getElementById('status').textContent =
       `${count} tabs open`;
