@@ -1,6 +1,3 @@
-// 存储 URL 到 tab ID 的映射
-const urlMap = new Map();
-
 // 监听 tab 的创建和更新
 chrome.tabs.onCreated.addListener(handleTab);
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -15,28 +12,26 @@ function handleTab(tab) {
 
   if (!url || url === 'chrome://newtab/') return;
 
-  // 如果 URL 已经存在，关闭当前 tab
-  if (urlMap.has(url)) {
-    const existingTabId = urlMap.get(url);
-    if (existingTabId !== tabId) {
-      // 获取新tab的位置
-      chrome.tabs.get(tabId, (newTab) => {
-        // 将旧tab移动到新tab的位置
-        chrome.tabs.move(existingTabId, {index: newTab.index});
-        // 关闭新tab
-        chrome.tabs.remove(tabId);
+  // 实时查询所有tab
+  chrome.tabs.query({}, (allTabs) => {
+    // 过滤出相同URL的tab
+    const duplicateTabs = allTabs.filter(t => t.url === url && t.id !== tabId);
+
+    // 如果存在重复tab
+    if (duplicateTabs.length > 0) {
+      // 按最后访问时间排序，保留最新打开的tab
+      const sortedTabs = duplicateTabs.sort((a, b) => b.lastAccessed - a.lastAccessed);
+      if (duplicateTabs.length > 1) {
+        // 关闭除最新tab外的其他tab
+        sortedTabs.slice(1).forEach(t => chrome.tabs.remove(t.id));
+      }
+      // 将保留的最新tab移动到新tab的位置并激活
+      const existingTab = sortedTabs[0];
+      chrome.tabs.move(existingTab.id, {index: tab.index}, () => {
+        chrome.tabs.update(existingTab.id, {active: true});
       });
-      return;
-    }
-  }
-
-  // 更新 URL 映射
-  urlMap.set(url, tabId);
-
-  // 监听 tab 关闭事件，清理映射
-  chrome.tabs.onRemoved.addListener((closedTabId) => {
-    if (closedTabId === tabId) {
-      urlMap.delete(url);
+      // 关闭新tab
+      chrome.tabs.remove(tabId);
     }
   });
 }
